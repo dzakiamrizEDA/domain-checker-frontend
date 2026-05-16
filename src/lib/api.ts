@@ -1,6 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "@/lib/constants";
-import type { SearchResponse, Tier } from "@/types/domain";
+import type { SearchResponse } from "@/types/domain";
 
 interface ApiEnvelope {
   success: boolean;
@@ -15,13 +15,10 @@ export const apiClient = axios.create({
 
 export interface SearchParams {
   keyword: string;
-  tier?: Tier;
-  page?: number;
-  limit?: number;
 }
 
 export async function searchDomains(params: SearchParams): Promise<SearchResponse> {
-  const { data: envelope } = await apiClient.get<ApiEnvelope>("/api/v1/search", {
+  const { data: envelope } = await apiClient.get<ApiEnvelope>("/api/search", {
     params,
   });
   return envelope.data;

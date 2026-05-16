@@ -4,13 +4,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Globe2, Zap, CheckCircle2, XCircle, Clock, X } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { Input } from "@/components/ui/input";
-import { TierSection, ShowMoreButton } from "@/components/TierSection";
+import { ResultsSection } from "@/components/ResultsSection";
 import { useDomainSearch } from "@/hooks/useDomainSearch";
-import { TIER_ORDER } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useRef, KeyboardEvent } from "react";
 
-const DOMAIN_REGEX = /^[a-zA-Z0-9-]*$/;
+const DOMAIN_REGEX = /^[a-zA-Z0-9-.]*$/;
 
 export default function HomePage() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,19 +21,14 @@ export default function HomePage() {
     submittedQuery,
     hasAnyData,
     stats,
-    tierQueries,
-    unlockedTiers,
-    unlockTier,
-    nextTier,
-    pages,
-    setPage,
+    isFetching,
+    results,
     recentSearches,
     clearRecent,
   } = useDomainSearch();
 
   const isValid = query.trim().length >= 2 && DOMAIN_REGEX.test(query.trim());
   const hasError = query.length > 0 && !DOMAIN_REGEX.test(query);
-  const isCoreLoading = tierQueries.core.isFetching;
 
   const handleKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && isValid) submit(query);
@@ -74,10 +68,7 @@ export default function HomePage() {
             </div>
 
             <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-              Domain Availability{" "}
-              <span className="bg-gradient-to-r from-[--brand] to-violet-400 bg-clip-text text-transparent">
-                Checker
-              </span>
+              Domain Availability Checker
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Check availability across Indonesian and global TLDs using IANA RDAP.
@@ -107,7 +98,7 @@ export default function HomePage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKey}
-                placeholder="Type a keyword, e.g. acme"
+                placeholder="Type a keyword, e.g. acme.com or acme"
                 className="h-full flex-1 border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0"
                 autoComplete="off"
                 spellCheck={false}
@@ -124,14 +115,14 @@ export default function HomePage() {
               )}
               <button
                 onClick={() => isValid && submit(query)}
-                disabled={!isValid || isCoreLoading}
+                disabled={!isValid || isFetching}
                 className={cn(
                   "m-1.5 flex h-9 items-center rounded-lg px-4 text-sm font-semibold transition-all",
                   "bg-[--brand] text-white hover:bg-[--brand]/90",
                   "disabled:cursor-not-allowed disabled:opacity-40"
                 )}
               >
-                {isCoreLoading ? (
+                {isFetching ? (
                   <span className="flex items-center gap-1.5">
                     <motion.span
                       animate={{ rotate: 360 }}
@@ -154,17 +145,17 @@ export default function HomePage() {
                   exit={{ opacity: 0 }}
                   className="mt-1.5 text-xs text-rose-400"
                 >
-                  Only letters, numbers, and hyphens allowed.
+                  Only letters, numbers, hyphens, and periods allowed.
                 </motion.p>
               )}
-              {isCoreLoading && (
+              {isFetching && (
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   className="mt-1.5 text-center text-xs text-muted-foreground"
                 >
-                  Querying RDAP servers — this takes ~10–15 s…
+                  Querying RDAP servers — this might take a moment...
                 </motion.p>
               )}
             </AnimatePresence>
@@ -172,7 +163,7 @@ export default function HomePage() {
 
           {/* ── Recent searches (idle only) ────────────────────────────── */}
           <AnimatePresence>
-            {!hasAnyData && recentSearches.length > 0 && (
+            {!hasAnyData && !isFetching && recentSearches.length > 0 && (
               <motion.div
                 key="recent"
                 initial={{ opacity: 0 }}
@@ -209,7 +200,7 @@ export default function HomePage() {
 
           {/* ── Results ────────────────────────────────────────────────── */}
           <AnimatePresence>
-            {hasAnyData && (
+            {(hasAnyData || isFetching) && (
               <motion.div
                 key="results"
                 initial={{ opacity: 0 }}
@@ -217,71 +208,43 @@ export default function HomePage() {
                 className="space-y-8"
               >
                 {/* Summary bar */}
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Results for{" "}
-                    <span className="font-semibold text-foreground">
-                      &ldquo;{submittedQuery}&rdquo;
-                    </span>
-                  </p>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="flex items-center gap-1 text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" />
-                      {stats.available} available
-                    </span>
-                    <span className="flex items-center gap-1 text-rose-400">
-                      <XCircle className="h-3 w-3" />
-                      {stats.taken} taken
-                    </span>
+                {hasAnyData && !isFetching && (
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Results for{" "}
+                      <span className="font-semibold text-foreground">
+                        &ldquo;{submittedQuery}&rdquo;
+                      </span>
+                    </p>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="flex items-center gap-1 text-emerald-400">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {stats.available} available
+                      </span>
+                      <span className="flex items-center gap-1 text-rose-400">
+                        <XCircle className="h-3 w-3" />
+                        {stats.taken} taken
+                      </span>
+                    </div>
                   </div>
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-border/40" />
-
-                {/* Tier sections (only unlocked ones) */}
-                {TIER_ORDER.map((tier, i) => {
-                  if (!unlockedTiers.has(tier)) return null;
-                  const q = tierQueries[tier];
-                  return (
-                    <motion.div
-                      key={tier}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: i * 0.05 }}
-                    >
-                      <TierSection
-                        tier={tier}
-                        data={q.data}
-                        isFetching={q.isFetching}
-                        page={pages[tier]}
-                        onPageChange={(p) => setPage(tier, p)}
-                      />
-                    </motion.div>
-                  );
-                })}
-
-                {/* Show More button */}
-                {nextTier && !tierQueries[nextTier].isFetching && (
-                  <ShowMoreButton
-                    tier={nextTier}
-                    isLoading={tierQueries[nextTier].isFetching}
-                    onClick={() => unlockTier(nextTier)}
-                  />
                 )}
-                {nextTier && tierQueries[nextTier].isFetching && (
-                  <ShowMoreButton
-                    tier={nextTier}
-                    isLoading={true}
-                    onClick={() => {}}
-                  />
+
+                {hasAnyData && !isFetching && (
+                  <div className="border-t border-border/40" />
                 )}
+
+                <ResultsSection 
+                  results={results} 
+                  isFetching={isFetching} 
+                  submittedQuery={submittedQuery} 
+                />
+
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* ── Idle state ─────────────────────────────────────────────── */}
-          {!hasAnyData && !isCoreLoading && recentSearches.length === 0 && (
+          {!hasAnyData && !isFetching && recentSearches.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -291,7 +254,7 @@ export default function HomePage() {
               {[
                 ["Indonesian-first", "co.id, id, my.id & more"],
                 ["RDAP Powered", "Live registry queries"],
-                ["Tiered Results", "Core → Pro → Extended"],
+                ["Direct Lookup", "Check specific domains"],
               ].map(([title, desc]) => (
                 <div
                   key={title}
