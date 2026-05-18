@@ -10,7 +10,10 @@ interface ApiEnvelope {
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 90_000,
-  headers: { "Content-Type": "application/json" },
+  headers: { 
+    "Content-Type": "application/json",
+    "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "supersecretkey",
+  },
 });
 
 export interface SearchParams {
